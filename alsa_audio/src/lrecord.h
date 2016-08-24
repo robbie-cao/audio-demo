@@ -5,5 +5,7 @@
 
 int SNDWAV_PrepareWAVParams(WAVContainer_t *wav);
 
+void start_Record(void);
+void stop_Record(void);
 
 #endif

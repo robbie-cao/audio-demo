@@ -27,6 +27,10 @@
 #include "wav_parser.h"
 #include "sndwav_common.h"
 
+const char *recorddevicename = "default";
+SNDPCMContainer_t recoder;
+pthread_t recordthreadID;
+
 #define DEFAULT_CHANNELS         (1)
 #define DEFAULT_SAMPLE_RATE      (44100)
 #define DEFAULT_SAMPLE_LENGTH    (16)
@@ -97,7 +101,88 @@ void SNDWAV_Record(SNDPCMContainer_t *sndpcm, WAVContainer_t *wav, int fd)
     printf("stop record\r\n");
 }
 
+int init_Record_ENV(void)
+{
+	memset(&recoder, 0x0, sizeof(recoder));
+	if (snd_output_stdio_attach(&recoder.log, stderr, 0) < 0) {
+		fprintf(stderr, "Error snd_output_stdio_attach/n");
+		return -1;
+	}
 
+	if (snd_pcm_open(&recoder.handle, recorddevicename, SND_PCM_STREAM_PLAYBACK, 0) < 0) {
+		return -1;
+	}
+
+	return 0;
+}
+
+void *record_Thread_Func(void *arg)
+{
+	char *filename;
+	FILE *fd;
+	WAVContainer_t wav;
+
+	SNDPCMContainer_t *snd = (SNDPCMContainer_t *)arg;
+
+	memset(&wav, 0x0, sizeof(WAVContainer_t));
+
+	//get file
+	filename = "/tmp/msg.wav";
+
+	fd = fopen(filename,"r");
+	fseek(fd, 0, SEEK_SET);
+
+	if (SNDWAV_SetParams(snd, &wav) < 0) {
+		fprintf(stderr, "Error set_snd_pcm_params/n");
+	}
+
+	snd_pcm_dump(snd->handle, snd->log);
+	SNDWAV_Record(snd, &wav, fd);
+	snd_pcm_drain(snd->handle);
+
+	fclose(fd);
+
+
+	return((void *)0);
+}
+
+int start_Record_Thread(void)
+{
+    pthread_create(&recordthreadID,NULL,record_Thread_Func,&recoder);
+
+	return 0;
+}
+
+int quit_Record_ENV(void)
+{
+	//close snd
+	snd_pcm_drain(recoder.handle);
+    snd_output_close(recoder.log);
+    snd_pcm_close(recoder.handle);
+
+	return 0;
+}
+
+int stop_Record_Thread(void)
+{
+	pthread_cancel(recordthreadID);
+	pthread_join(recordthreadID,NULL);
+
+	return 0;
+}
+
+
+void start_Record(void)
+{
+	init_Record_ENV();
+	start_Record_Thread();
+}
+
+void stop_Record(void)
+{
+	stop_Record_Thread();
+	quit_Record_ENV();
+}
 
 //int main(int argc, char *argv[])
 //{

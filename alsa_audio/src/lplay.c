@@ -31,7 +31,7 @@
 
 const char *devicename = "plug:dmix";
 SNDPCMContainer_t playback;
-pthread_t *playthreadID;
+pthread_t playthreadID;
 
 
 ssize_t SNDWAV_P_SaveRead(FILE * fd, void *buf, size_t count)
@@ -105,7 +105,7 @@ int init_Play_ENV(void)
 	return 0;
 }
 
-void *thread_func(void *arg)
+void *play_Thread_Func(void *arg)
 {
 	char *filename;
 	FILE *fd;
@@ -137,7 +137,7 @@ void *thread_func(void *arg)
 
 int start_Play_Thread(void)
 {
-    pthread_create(playthreadID,NULL,thread_func,&playback);
+    pthread_create(&playthreadID,NULL,play_Thread_Func,&playback);
 
 	return 0;
 }
