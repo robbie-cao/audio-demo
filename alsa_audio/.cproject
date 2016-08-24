@@ -42,6 +42,7 @@
 								</option>
 								<option id="gnu.c.link.option.libs.242932407" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="asound"/>
+									<listOptionValue builtIn="false" value="mraa"/>
 									<listOptionValue builtIn="false" value="mad"/>
 								</option>
 								<option id="gnu.c.link.option.ldflags.2116506871" name="Linker flags" superClass="gnu.c.link.option.ldflags" value="" valueType="string"/>

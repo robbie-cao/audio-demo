@@ -1,6 +1,9 @@
 //File   : lplay.c
 //Author : Loon <sepnic@gmail.com>
 
+
+#include "lplay.h"
+
 #include <stdio.h>
 #include <malloc.h>
 #include <unistd.h>
@@ -18,8 +21,10 @@
 #include <sys/types.h>
 #include <alsa/asoundlib.h>
 #include <assert.h>
+
 #include "wav_parser.h"
 #include "sndwav_common.h"
+
 
 ssize_t SNDWAV_P_SaveRead(FILE * fd, void *buf, size_t count)
 {
