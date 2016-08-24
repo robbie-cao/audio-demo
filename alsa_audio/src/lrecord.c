@@ -1,6 +1,12 @@
 //File   : lrecord.c
 //Author : Loon <sepnic@gmail.com>
 
+#include "lrecord.h"
+
+
+#include <stdint.h>
+#include <stdbool.h>
+
 #include <stdio.h>
 #include <malloc.h>
 #include <unistd.h>
@@ -90,6 +96,8 @@ void SNDWAV_Record(SNDPCMContainer_t *sndpcm, WAVContainer_t *wav, int fd)
 
     printf("stop record\r\n");
 }
+
+
 
 //int main(int argc, char *argv[])
 //{

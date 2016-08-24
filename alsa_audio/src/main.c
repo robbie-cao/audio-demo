@@ -18,4 +18,12 @@
 
 #include "wav_parser.h"
 #include "sndwav_common.h"
+#include "lplay.h"
+#include "lrecord.h"
+
+
+int main(void)
+{
+
+}
 

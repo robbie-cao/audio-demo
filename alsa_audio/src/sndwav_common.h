@@ -3,12 +3,16 @@
   
 #ifndef __SNDWAV_COMMON_H  
 #define __SNDWAV_COMMON_H  
-  
+
+#include <stdint.h>
+
 #include <stdio.h>  
 #include <stdlib.h>  
 #include <unistd.h>  
 #include <fcntl.h>  
+#include <alsa/asoundlib.h>
 #include "wav_parser.h"  
+
   
 typedef long long off64_t;  
   

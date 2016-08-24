@@ -4,6 +4,9 @@
 
 #include "lplay.h"
 
+#include <stdint.h>
+#include <stdbool.h>
+
 #include <stdio.h>
 #include <malloc.h>
 #include <unistd.h>
@@ -21,9 +24,14 @@
 #include <sys/types.h>
 #include <alsa/asoundlib.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include "wav_parser.h"
 #include "sndwav_common.h"
+
+const char *devicename = "plug:dmix";
+SNDPCMContainer_t playback;
+pthread_t *playthreadID;
 
 
 ssize_t SNDWAV_P_SaveRead(FILE * fd, void *buf, size_t count)
@@ -80,6 +88,88 @@ void SNDWAV_Play(SNDPCMContainer_t *sndpcm, WAVContainer_t *wav, FILE *fd)
         written += ret;
         load = 0;
     }
+}
+
+int init_Play_ENV(void)
+{
+	memset(&playback, 0x0, sizeof(playback));
+	if (snd_output_stdio_attach(&playback.log, stderr, 0) < 0) {
+		fprintf(stderr, "Error snd_output_stdio_attach/n");
+		return -1;
+	}
+
+	if (snd_pcm_open(&playback.handle, devicename, SND_PCM_STREAM_PLAYBACK, 0) < 0) {
+		return -1;
+	}
+
+	return 0;
+}
+
+void *thread_func(void *arg)
+{
+	char *filename;
+	FILE *fd;
+	WAVContainer_t wav;
+
+	SNDPCMContainer_t *snd = (SNDPCMContainer_t *)arg;
+
+	memset(&wav, 0x0, sizeof(WAVContainer_t));
+
+	//get file
+	filename = "/tmp/msg.wav";
+
+	fd = fopen(filename,"r");
+	fseek(fd, 0, SEEK_SET);
+
+	if (SNDWAV_SetParams(snd, &wav) < 0) {
+		fprintf(stderr, "Error set_snd_pcm_params/n");
+	}
+
+	snd_pcm_dump(snd->handle, snd->log);
+	SNDWAV_Play(snd, &wav, fd);
+	snd_pcm_drain(snd->handle);
+
+	fclose(fd);
+
+
+	return((void *)0);
+}
+
+int start_Play_Thread(void)
+{
+    pthread_create(playthreadID,NULL,thread_func,&playback);
+
+	return 0;
+}
+
+int quit_Play_ENV(void)
+{
+	//close snd
+	snd_pcm_drain(playback.handle);
+    snd_output_close(playback.log);
+    snd_pcm_close(playback.handle);
+
+	return 0;
+}
+
+int stop_Play_Thread(void)
+{
+	pthread_join(playthreadID,NULL);
+
+	return 0;
+}
+
+
+void start_Play(void)
+{
+	init_Play_ENV();
+	start_Play_Thread();
+}
+
+void stop_Play(void)
+{
+	stop_Play_Thread();
+	quit_Play_ENV();
 }
 
 //int main(int argc, char *argv[])
