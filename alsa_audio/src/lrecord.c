@@ -79,6 +79,10 @@ void SNDWAV_Record(SNDPCMContainer_t *sndpcm, WAVContainer_t *wav, int fd)
     off64_t rest;
     size_t c, frame_size;
 
+    if (WAV_WriteHeader(fd, wav) < 0) {
+            exit(-1);
+    }
+
     rest = wav->chunk.length;
     while (rest > 0) {
 
@@ -133,71 +137,65 @@ static void stop_Recording_SigHandler(int dwSigNo)
 
 void *record_Thread_Func(void *arg)
 {
-	char *filename;
-	FILE *fd;
-	WAVContainer_t wav;
-	size_t frame_size = 0;
+    char *filename = "/tmp/a.wav";
+    char *devicename = "default";
+    int fd;
+    WAVContainer_t wav;
+    SNDPCMContainer_t record;
 
-	SNDPCMContainer_t *snd = (SNDPCMContainer_t *)arg;
+//    if (argc != 2) {
+//        fprintf(stderr, "Usage: ./lrecord <FILENAME>/n");
+//        return -1;
+//    }
 
-    pthread_t  ppid = pthread_self();
-    pthread_detach(ppid);
+    memset(&record, 0x0, sizeof(record));
 
+    //filename = argv[1];
+    remove(filename);
 
-	recording = true; //enable recording
-
-	memset(&wav, 0x0, sizeof(WAVContainer_t));
-
-	init_Record_ENV();
-	//get file
-	filename = "/tmp/msg.wav";
-
-	fd = fopen(filename,"r");
-	fseek(fd, 0, SEEK_SET);
-
-	if (SNDWAV_SetParams(snd, &wav) < 0) {
-		fprintf(stderr, "Error set_snd_pcm_params/n");
-	}
-
-	snd_pcm_dump(snd->handle, snd->log);
-	frame_size = snd->chunk_size * 8 / snd->bits_per_frame;
-
-    if (WAV_WriteHeader(fd, &wav) < 0) {  //empty header
-        exit(-1);
+    if ((fd = open(filename, O_WRONLY | O_CREAT, 0644)) == -1) {
+        fprintf(stderr, "Error open: [%s]/n", filename);
+        return -1;
     }
 
-	while(recording)  //do recording function until stop
-	{
-
-        if (SNDWAV_ReadPcm(snd, frame_size) != frame_size)
-            break;
-
-        //save
-        if (fwrite(snd->data_buf, 1, snd->chunk_size, fd) != snd->chunk_size) {
-			   fprintf(stderr, "Error SNDWAV_Record[write]\n");
-		}
-
-        wav.chunk.length += snd->chunk_bytes;
-
-        //max size limit
-        if(wav.chunk.length > snd->chunk_bytes*500)
-        {
-        	break;
-        }
-	}
-
-    if (WAV_WriteHeader(fd, &wav) < 0) { //updata wav header
-        exit(-1);
+    if (snd_output_stdio_attach(&record.log, stderr, 0) < 0) {
+        fprintf(stderr, "Error snd_output_stdio_attach/n");
+        goto Err;
     }
 
-	snd_pcm_drain(snd->handle);
+    if (snd_pcm_open(&record.handle, devicename, SND_PCM_STREAM_CAPTURE, 0) < 0) {
+        fprintf(stderr, "Error snd_pcm_open [ %s]/n", devicename);
+        goto Err;
+    }
 
-	fflush(fd);
-	fclose(fd);
+    if (SNDWAV_PrepareWAVParams(&wav) < 0) {
+        fprintf(stderr, "Error SNDWAV_PrepareWAVParams/n");
+        goto Err;
+    }
 
-	quit_Record_ENV();
+    if (SNDWAV_SetParams(&record, &wav) < 0) {
+        fprintf(stderr, "Error set_snd_pcm_params/n");
+        goto Err;
+    }
+    snd_pcm_dump(record.handle, record.log);
 
-	return((void *)0);
+    SNDWAV_Record(&record, &wav, fd);
+
+    snd_pcm_drain(record.handle);
+
+    close(fd);
+    free(record.data_buf);
+    snd_output_close(record.log);
+    snd_pcm_close(record.handle);
+    return 0;
+
+Err:
+    close(fd);
+    remove(filename);
+    if (record.data_buf) free(record.data_buf);
+    if (record.log) snd_output_close(record.log);
+    if (record.handle) snd_pcm_close(record.handle);
+    return -1;
 }
 
 int start_Record_Thread(void)
@@ -249,22 +247,30 @@ void stop_Record(void)
 	recordthreadID = 0;
 }
 
-//int main(int argc, char *argv[])
-//{
-//    char *filename;
+int main(int argc, char *argv[])
+{
+
+	start_Record();
+
+	while(1)
+	{
+		sleep(10);
+	}
+
+//    char *filename = "/tmp/a.wav";
 //    char *devicename = "default";
 //    int fd;
 //    WAVContainer_t wav;
 //    SNDPCMContainer_t record;
 //
-//    if (argc != 2) {
-//        fprintf(stderr, "Usage: ./lrecord <FILENAME>/n");
-//        return -1;
-//    }
+////    if (argc != 2) {
+////        fprintf(stderr, "Usage: ./lrecord <FILENAME>/n");
+////        return -1;
+////    }
 //
 //    memset(&record, 0x0, sizeof(record));
 //
-//    filename = argv[1];
+//    //filename = argv[1];
 //    remove(filename);
 //
 //    if ((fd = open(filename, O_WRONLY | O_CREAT, 0644)) == -1) {
@@ -310,4 +316,4 @@ void stop_Record(void)
 //    if (record.log) snd_output_close(record.log);
 //    if (record.handle) snd_pcm_close(record.handle);
 //    return -1;
-//}
+}

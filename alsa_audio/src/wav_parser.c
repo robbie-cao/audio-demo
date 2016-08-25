@@ -115,16 +115,17 @@ int WAV_ReadHeader(FILE * fd, WAVContainer_t *container)
     return 0;
 }
 
-int WAV_WriteHeader(FILE *fd, WAVContainer_t *container)
+int WAV_WriteHeader(int fd, WAVContainer_t *container)
 {
     assert((fd >=0) && container);
 
     if (WAV_P_CheckValid(container) < 0)
         return -1;
 
-    fseek(fd, 0, SEEK_SET);
+    if (write(fd, &container->header, sizeof(container->header)) != sizeof(container->header) ||
+        write(fd, &container->format, sizeof(container->format)) != sizeof(container->format) ||
+        write(fd, &container->chunk, sizeof(container->chunk)) != sizeof(container->chunk)) {
 
-    if (fwrite(&container,1,sizeof(WAVContainer_t),fd) != sizeof(WAVContainer_t)) {
         fprintf(stderr, "Error WAV_WriteHeader/n");
         return -1;
     }
