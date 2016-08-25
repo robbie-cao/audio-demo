@@ -122,6 +122,7 @@ int WAV_WriteHeader(int fd, WAVContainer_t *container)
     if (WAV_P_CheckValid(container) < 0)
         return -1;
 
+    lseek(fd,0,SEEK_SET);
     if (write(fd, &container->header, sizeof(container->header)) != sizeof(container->header) ||
         write(fd, &container->format, sizeof(container->format)) != sizeof(container->format) ||
         write(fd, &container->chunk, sizeof(container->chunk)) != sizeof(container->chunk)) {

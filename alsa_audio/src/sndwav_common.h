@@ -4,7 +4,7 @@
 #ifndef __SNDWAV_COMMON_H  
 #define __SNDWAV_COMMON_H  
 
-#include <stdint.h>
+#include <stdint-gcc.h>
 
 #include <stdio.h>  
 #include <stdlib.h>  

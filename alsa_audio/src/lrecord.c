@@ -36,7 +36,7 @@ pthread_t recordthreadID = 0;
 #define DEFAULT_CHANNELS         (1)
 #define DEFAULT_SAMPLE_RATE      (44100)
 #define DEFAULT_SAMPLE_LENGTH    (16)
-#define DEFAULT_DURATION_TIME    (10)
+#define DEFAULT_DURATION_TIME    (0)
 
 int init_Record_ENV(void);
 int quit_Record_ENV(void);
@@ -139,23 +139,18 @@ void *record_Thread_Func(void *arg)
 {
     char *filename = "/tmp/a.wav";
     char *devicename = "default";
+    size_t c, frame_size;
     int fd;
     WAVContainer_t wav;
     SNDPCMContainer_t record;
 
-//    if (argc != 2) {
-//        fprintf(stderr, "Usage: ./lrecord <FILENAME>/n");
-//        return -1;
-//    }
-
     memset(&record, 0x0, sizeof(record));
 
-    //filename = argv[1];
     remove(filename);
 
     if ((fd = open(filename, O_WRONLY | O_CREAT, 0644)) == -1) {
         fprintf(stderr, "Error open: [%s]/n", filename);
-        return -1;
+        return 0;
     }
 
     if (snd_output_stdio_attach(&record.log, stderr, 0) < 0) {
@@ -179,7 +174,37 @@ void *record_Thread_Func(void *arg)
     }
     snd_pcm_dump(record.handle, record.log);
 
-    SNDWAV_Record(&record, &wav, fd);
+    //SNDWAV_Record(&record, &wav, fd);
+    if (WAV_WriteHeader(fd, &wav) < 0) {
+                exit(-1);
+    }
+
+    c = record.chunk_bytes;
+    frame_size = c * 8 / record.bits_per_frame;
+
+    while(recording){
+    	if (SNDWAV_ReadPcm(&record, frame_size) != frame_size)
+			break;
+
+		if (write(fd, record.data_buf, c) != c) {
+			fprintf(stderr, "Error SNDWAV_Record[write]\n");
+			exit(-1);
+		}
+
+		wav.chunk.length += c;
+
+		//max limit
+		if(wav.chunk.length > c * 300)
+		{
+			printf("test\r\n");
+			break;
+		}
+    }
+
+
+    if (WAV_WriteHeader(fd, &wav) < 0) {
+                exit(-1);
+    }
 
     snd_pcm_drain(record.handle);
 
@@ -187,6 +212,8 @@ void *record_Thread_Func(void *arg)
     free(record.data_buf);
     snd_output_close(record.log);
     snd_pcm_close(record.handle);
+    recording = false;
+    printf("exit\r\n");
     return 0;
 
 Err:
@@ -195,7 +222,7 @@ Err:
     if (record.data_buf) free(record.data_buf);
     if (record.log) snd_output_close(record.log);
     if (record.handle) snd_pcm_close(record.handle);
-    return -1;
+    return 0;
 }
 
 int start_Record_Thread(void)
@@ -252,68 +279,8 @@ int main(int argc, char *argv[])
 
 	start_Record();
 
-	while(1)
-	{
-		sleep(10);
-	}
 
-//    char *filename = "/tmp/a.wav";
-//    char *devicename = "default";
-//    int fd;
-//    WAVContainer_t wav;
-//    SNDPCMContainer_t record;
-//
-////    if (argc != 2) {
-////        fprintf(stderr, "Usage: ./lrecord <FILENAME>/n");
-////        return -1;
-////    }
-//
-//    memset(&record, 0x0, sizeof(record));
-//
-//    //filename = argv[1];
-//    remove(filename);
-//
-//    if ((fd = open(filename, O_WRONLY | O_CREAT, 0644)) == -1) {
-//        fprintf(stderr, "Error open: [%s]/n", filename);
-//        return -1;
-//    }
-//
-//    if (snd_output_stdio_attach(&record.log, stderr, 0) < 0) {
-//        fprintf(stderr, "Error snd_output_stdio_attach/n");
-//        goto Err;
-//    }
-//
-//    if (snd_pcm_open(&record.handle, devicename, SND_PCM_STREAM_CAPTURE, 0) < 0) {
-//        fprintf(stderr, "Error snd_pcm_open [ %s]/n", devicename);
-//        goto Err;
-//    }
-//
-//    if (SNDWAV_PrepareWAVParams(&wav) < 0) {
-//        fprintf(stderr, "Error SNDWAV_PrepareWAVParams/n");
-//        goto Err;
-//    }
-//
-//    if (SNDWAV_SetParams(&record, &wav) < 0) {
-//        fprintf(stderr, "Error set_snd_pcm_params/n");
-//        goto Err;
-//    }
-//    snd_pcm_dump(record.handle, record.log);
-//
-//    SNDWAV_Record(&record, &wav, fd);
-//
-//    snd_pcm_drain(record.handle);
-//
-//    close(fd);
-//    free(record.data_buf);
-//    snd_output_close(record.log);
-//    snd_pcm_close(record.handle);
-//    return 0;
-//
-//Err:
-//    close(fd);
-//    remove(filename);
-//    if (record.data_buf) free(record.data_buf);
-//    if (record.log) snd_output_close(record.log);
-//    if (record.handle) snd_pcm_close(record.handle);
-//    return -1;
+	sleep(1000 * 10);
+
+	printf("quit\r\n");
 }
