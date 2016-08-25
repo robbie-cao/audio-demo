@@ -109,21 +109,6 @@ void SNDWAV_Record(SNDPCMContainer_t *sndpcm, WAVContainer_t *wav, int fd)
     printf("stop record\r\n");
 }
 
-int init_Record_ENV(void)
-{
-	memset(&recoder, 0x0, sizeof(recoder));
-	if (snd_output_stdio_attach(&recoder.log, stderr, 0) < 0) {
-		fprintf(stderr, "Error snd_output_stdio_attach/n");
-		return -1;
-	}
-
-	if (snd_pcm_open(&recoder.handle, recorddevicename, SND_PCM_STREAM_PLAYBACK, 0) < 0) {
-		return -1;
-	}
-
-	return 0;
-}
-
 bool recording;
 
 //stop signal
@@ -225,32 +210,26 @@ Err:
     return 0;
 }
 
+struct sigaction actions;
 int start_Record_Thread(void)
 {
 	recording = true;
-	struct sigaction actions;
+
+	memset(&actions, 0, sizeof(actions));
+	sigemptyset(&actions.sa_mask); /* 将参数set信号集初始化并清空 */
 	actions.sa_flags = 0;
 	actions.sa_handler = stop_Recording_SigHandler;
 
-	sigaction(0,&actions,NULL);
+	sigaction(SIGALRM,&actions,NULL);
 
     pthread_create(&recordthreadID,NULL,record_Thread_Func,&recoder);
 
 	return 0;
 }
 
-int quit_Record_ENV(void)
-{
-	snd_pcm_drain(recoder.handle);
-    snd_output_close(recoder.log);
-    snd_pcm_close(recoder.handle);
-
-	return 0;
-}
-
 int stop_Record_Thread(void)
 {
-	pthread_kill(recordthreadID,0);
+	pthread_kill(recordthreadID,SIGALRM);
 	pthread_join(recordthreadID,NULL);
 
 	return 0;
@@ -259,11 +238,11 @@ int stop_Record_Thread(void)
 
 void start_Record(void)
 {
-	if(recordthreadID != 0)
-	{
-		stop_Record_Thread();
-		recordthreadID = 0;
-	}
+//	if(recordthreadID != 0)
+//	{
+//		stop_Record_Thread();
+//		recordthreadID = 0;
+//	}
 
 	start_Record_Thread();
 }
@@ -279,8 +258,8 @@ int main(int argc, char *argv[])
 
 	start_Record();
 
+	stop_Record_Thread();
 
-	sleep(1000 * 10);
 
 	printf("quit\r\n");
 }
