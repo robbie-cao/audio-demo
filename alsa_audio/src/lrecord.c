@@ -24,17 +24,23 @@
 #include <sys/types.h>
 #include <alsa/asoundlib.h>
 #include <assert.h>
+#include <signal.h>
+#include <pthread.h>
 #include "wav_parser.h"
 #include "sndwav_common.h"
 
 const char *recorddevicename = "default";
 SNDPCMContainer_t recoder;
-pthread_t recordthreadID;
+pthread_t recordthreadID = 0;
 
 #define DEFAULT_CHANNELS         (1)
 #define DEFAULT_SAMPLE_RATE      (44100)
 #define DEFAULT_SAMPLE_LENGTH    (16)
 #define DEFAULT_DURATION_TIME    (10)
+
+int init_Record_ENV(void);
+int quit_Record_ENV(void);
+
 
 int SNDWAV_PrepareWAVParams(WAVContainer_t *wav)
 {
@@ -73,10 +79,6 @@ void SNDWAV_Record(SNDPCMContainer_t *sndpcm, WAVContainer_t *wav, int fd)
     off64_t rest;
     size_t c, frame_size;
 
-    if (WAV_WriteHeader(fd, wav) < 0) {
-        exit(-1);
-    }
-
     rest = wav->chunk.length;
     while (rest > 0) {
 
@@ -98,6 +100,8 @@ void SNDWAV_Record(SNDPCMContainer_t *sndpcm, WAVContainer_t *wav, int fd)
         rest -= c;
     }
 
+    //exit
+
     printf("stop record\r\n");
 }
 
@@ -116,16 +120,35 @@ int init_Record_ENV(void)
 	return 0;
 }
 
+bool recording;
+
+//stop signal
+static void stop_Recording_SigHandler(int dwSigNo)
+{
+	printf("get stop signal\r\n");
+
+	recording = false;
+}
+
+
 void *record_Thread_Func(void *arg)
 {
 	char *filename;
 	FILE *fd;
 	WAVContainer_t wav;
+	size_t frame_size = 0;
 
 	SNDPCMContainer_t *snd = (SNDPCMContainer_t *)arg;
 
+    pthread_t  ppid = pthread_self();
+    pthread_detach(ppid);
+
+
+	recording = true; //enable recording
+
 	memset(&wav, 0x0, sizeof(WAVContainer_t));
 
+	init_Record_ENV();
 	//get file
 	filename = "/tmp/msg.wav";
 
@@ -137,17 +160,55 @@ void *record_Thread_Func(void *arg)
 	}
 
 	snd_pcm_dump(snd->handle, snd->log);
-	SNDWAV_Record(snd, &wav, fd);
+	frame_size = snd->chunk_size * 8 / snd->bits_per_frame;
+
+    if (WAV_WriteHeader(fd, &wav) < 0) {  //empty header
+        exit(-1);
+    }
+
+	while(recording)  //do recording function until stop
+	{
+
+        if (SNDWAV_ReadPcm(snd, frame_size) != frame_size)
+            break;
+
+        //save
+        if (fwrite(snd->data_buf, 1, snd->chunk_size, fd) != snd->chunk_size) {
+			   fprintf(stderr, "Error SNDWAV_Record[write]\n");
+		}
+
+        wav.chunk.length += snd->chunk_bytes;
+
+        //max size limit
+        if(wav.chunk.length > snd->chunk_bytes*500)
+        {
+        	break;
+        }
+	}
+
+    if (WAV_WriteHeader(fd, &wav) < 0) { //updata wav header
+        exit(-1);
+    }
+
 	snd_pcm_drain(snd->handle);
 
+	fflush(fd);
 	fclose(fd);
 
+	quit_Record_ENV();
 
 	return((void *)0);
 }
 
 int start_Record_Thread(void)
 {
+	recording = true;
+	struct sigaction actions;
+	actions.sa_flags = 0;
+	actions.sa_handler = stop_Recording_SigHandler;
+
+	sigaction(0,&actions,NULL);
+
     pthread_create(&recordthreadID,NULL,record_Thread_Func,&recoder);
 
 	return 0;
@@ -155,7 +216,6 @@ int start_Record_Thread(void)
 
 int quit_Record_ENV(void)
 {
-	//close snd
 	snd_pcm_drain(recoder.handle);
     snd_output_close(recoder.log);
     snd_pcm_close(recoder.handle);
@@ -165,7 +225,7 @@ int quit_Record_ENV(void)
 
 int stop_Record_Thread(void)
 {
-	pthread_cancel(recordthreadID);
+	pthread_kill(recordthreadID,0);
 	pthread_join(recordthreadID,NULL);
 
 	return 0;
@@ -174,14 +234,19 @@ int stop_Record_Thread(void)
 
 void start_Record(void)
 {
-	init_Record_ENV();
+	if(recordthreadID != 0)
+	{
+		stop_Record_Thread();
+		recordthreadID = 0;
+	}
+
 	start_Record_Thread();
 }
 
 void stop_Record(void)
 {
 	stop_Record_Thread();
-	quit_Record_ENV();
+	recordthreadID = 0;
 }
 
 //int main(int argc, char *argv[])

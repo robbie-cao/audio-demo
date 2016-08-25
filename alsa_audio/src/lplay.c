@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <alsa/asoundlib.h>
 #include <assert.h>
+#include <signal.h>
 #include <pthread.h>
 
 #include "wav_parser.h"
@@ -33,6 +34,8 @@ const char *devicename = "plug:dmix";
 SNDPCMContainer_t playback;
 pthread_t playthreadID;
 
+int init_Play_ENV(void);
+int quit_Play_ENV(void);
 
 ssize_t SNDWAV_P_SaveRead(FILE * fd, void *buf, size_t count)
 {
@@ -105,11 +108,24 @@ int init_Play_ENV(void)
 	return 0;
 }
 
+bool playing;
+
+static void stop_Playing_SigHandler(int dwSigNo)
+{
+	printf("get stop signal\r\n");
+
+	playing = false;
+}
+
 void *play_Thread_Func(void *arg)
 {
 	char *filename;
 	FILE *fd;
 	WAVContainer_t wav;
+	int load, ret;
+	off64_t written = 0;
+	off64_t c;
+	off64_t count = LE_INT(wav.chunk.length);
 
 	SNDPCMContainer_t *snd = (SNDPCMContainer_t *)arg;
 
@@ -118,25 +134,74 @@ void *play_Thread_Func(void *arg)
 	//get file
 	filename = "/tmp/msg.wav";
 
+	init_Play_ENV();
+
 	fd = fopen(filename,"r");
 	fseek(fd, 0, SEEK_SET);
+	if (WAV_ReadHeader(fd, &wav) < 0) {
+		fprintf(stderr, "Error WAV_Parse [%s]/n", filename);
+	}
 
 	if (SNDWAV_SetParams(snd, &wav) < 0) {
 		fprintf(stderr, "Error set_snd_pcm_params/n");
 	}
 
 	snd_pcm_dump(snd->handle, snd->log);
-	SNDWAV_Play(snd, &wav, fd);
-	snd_pcm_drain(snd->handle);
+	//SNDWAV_Play(snd, &wav, fd);
+	while(playing)
+	{
+	    if (written < count) {
+	        /* Must read [chunk_bytes] bytes data enough. */
+	        do {
+	            c = count - written;
+	            if (c > snd->chunk_bytes)
+	                c = snd->chunk_bytes;
+	            c -= load;
+
+	            if (c == 0)
+	                break;
+	            ret = SNDWAV_P_SaveRead(fd, snd->data_buf + load, c);
+	            if (ret < 0) {
+	                fprintf(stderr, "Error safe_read/n");
+	                exit(-1);
+	            }
+	            if (ret == 0)
+	                break;
+	            load += ret;
+	        } while ((size_t)load < snd->chunk_bytes);
+
+	        /* Transfer to size frame */
+	        load = load * 8 / snd->bits_per_frame;
+	        ret = SNDWAV_WritePcm(snd, load);
+	        if (ret != load)
+	            break;
+
+	        ret = ret * snd->bits_per_frame / 8;
+	        written += ret;
+	        load = 0;
+	    }else{
+	    	playing = false;
+	    }
+	}
 
 	fclose(fd);
 
+	snd_pcm_drain(snd->handle);
+
+	quit_Play_ENV();
 
 	return((void *)0);
 }
 
 int start_Play_Thread(void)
 {
+	playing = true;
+	struct sigaction actions;
+	actions.sa_flags = 0;
+	actions.sa_handler = stop_Playing_SigHandler;
+
+	sigaction(0,&actions,NULL);
+
     pthread_create(&playthreadID,NULL,play_Thread_Func,&playback);
 
 	return 0;
@@ -154,6 +219,7 @@ int quit_Play_ENV(void)
 
 int stop_Play_Thread(void)
 {
+	pthread_kill(playthreadID,0);
 	pthread_join(playthreadID,NULL);
 
 	return 0;
@@ -162,14 +228,19 @@ int stop_Play_Thread(void)
 
 void start_Play(void)
 {
-	init_Play_ENV();
+	if(playthreadID != 0)
+	{
+		stop_Play_Thread();
+		playthreadID =0;
+	}
+
 	start_Play_Thread();
 }
 
 void stop_Play(void)
 {
 	stop_Play_Thread();
-	quit_Play_ENV();
+	playthreadID = 0;
 }
 
 //int main(int argc, char *argv[])
