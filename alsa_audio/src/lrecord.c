@@ -26,8 +26,11 @@
 #include <assert.h>
 #include <signal.h>
 #include <pthread.h>
+#include <json-c/json.h>
+
 #include "wav_parser.h"
 #include "sndwav_common.h"
+#include "http_hander.h"
 
 const char *recorddevicename = "default";
 SNDPCMContainer_t recoder;
@@ -115,6 +118,16 @@ static void stop_Recording_SigHandler(int dwSigNo)
 	recording = false;
 }
 
+void upload_Voice(char *filename)
+{
+	json_object *msg;
+
+	msg = json_object_new_object();
+
+	json_object_object_add(msg,"filename",json_object_new_string(filename));
+
+	voice_Upload_Service(msg);
+}
 
 void *record_Thread_Func(void *arg)
 {
@@ -193,6 +206,10 @@ void *record_Thread_Func(void *arg)
     snd_output_close(record.log);
     snd_pcm_close(record.handle);
     recording = false;
+
+    //
+    upload_Voice(filename);
+
     printf("exit\r\n");
     return 0;
 

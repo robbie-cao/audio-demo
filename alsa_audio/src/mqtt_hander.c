@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <mosquitto.h>
+#include <json-c/json.h>
 
 #define mqtt_host "test.muabaobao.com"
 #define mqtt_port 1883
@@ -33,7 +34,12 @@ void message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_
 	if (match) {
 		printf("got message for ADC topic\n");
 	}
+}
 
+int MQTT_Message_Send(json_object *msg)
+{
+
+	return 0;
 }
 
 static void stop_Mqtt_SigHandler(int dwSigNo)
@@ -83,6 +89,7 @@ void *mqtt_Thread_Func(void *arg)
 }
 
 struct sigaction actions;
+
 void start_matt(void)
 {
 	memset(&actions, 0, sizeof(actions));

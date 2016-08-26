@@ -5,9 +5,12 @@
 #include <string.h>
 #include <json-c/json.h>
 
+#include "mqtt_hander.h"
+
 struct MemoryStruct {
   char *memory;
   size_t size;
+  json_object *msg;
 };
 
 static size_t
@@ -32,12 +35,20 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
 
   new_obj = json_tokener_parse(mem->memory);
 
+  json_object_object_del(mem->msg,"filename");
+  json_object_object_add(mem->msg,"key",json_object_object_get(new_obj,"key"));
+
   printf("KEY:%s\r\n",json_object_get_string(json_object_object_get(new_obj,"key")));
+
+  json_object_put(new_obj);
+
+  free(mem->memory);
+  MQTT_Message_Send(mem->msg);
 
   return realsize;
 }
 
-int main(void)
+int voice_Upload_Service(json_object *msg)
 {
   CURL *curl;
   CURLcode res;
@@ -49,8 +60,9 @@ int main(void)
 
   chunk.memory = malloc(1);  /* will be grown as needed by the realloc above */
   chunk.size = 0;    /* no data at this point */
+  chunk.msg = msg;
 
-  fd = fopen("/tmp/a.mp3", "rb"); /* open file to upload */
+  fd = fopen(json_object_get_string(json_object_object_get(msg,"filename")), "rb"); /* open file to upload */
   if(!fd) {
 
     return 1; /* can't continue */

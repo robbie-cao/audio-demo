@@ -8,6 +8,6 @@
 #ifndef MQTT_HANDER_H_
 #define MQTT_HANDER_H_
 
-
+int MQTT_Message_Send(json_object *msg);
 
 #endif /* MQTT_HANDER_H_ */
