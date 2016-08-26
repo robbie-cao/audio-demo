@@ -193,14 +193,17 @@ void *play_Thread_Func(void *arg)
 	return((void *)0);
 }
 
+struct sigaction actions;
 int start_Play_Thread(void)
 {
 	playing = true;
-	struct sigaction actions;
+
+	memset(&actions, 0, sizeof(actions));
+	sigemptyset(&actions.sa_mask); /* 将参数set信号集初始化并清空 */
 	actions.sa_flags = 0;
 	actions.sa_handler = stop_Playing_SigHandler;
 
-	sigaction(0,&actions,NULL);
+	sigaction(SIGALRM,&actions,NULL);
 
     pthread_create(&playthreadID,NULL,play_Thread_Func,&playback);
 
@@ -219,7 +222,7 @@ int quit_Play_ENV(void)
 
 int stop_Play_Thread(void)
 {
-	pthread_kill(playthreadID,0);
+	pthread_kill(playthreadID,SIGALRM);
 	pthread_join(playthreadID,NULL);
 
 	return 0;

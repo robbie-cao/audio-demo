@@ -38,10 +38,6 @@ pthread_t recordthreadID = 0;
 #define DEFAULT_SAMPLE_LENGTH    (16)
 #define DEFAULT_DURATION_TIME    (0)
 
-int init_Record_ENV(void);
-int quit_Record_ENV(void);
-
-
 int SNDWAV_PrepareWAVParams(WAVContainer_t *wav)
 {
     assert(wav);
@@ -159,7 +155,6 @@ void *record_Thread_Func(void *arg)
     }
     snd_pcm_dump(record.handle, record.log);
 
-    //SNDWAV_Record(&record, &wav, fd);
     if (WAV_WriteHeader(fd, &wav) < 0) {
                 exit(-1);
     }
@@ -179,7 +174,7 @@ void *record_Thread_Func(void *arg)
 		wav.chunk.length += c;
 
 		//max limit
-		if(wav.chunk.length > c * 300)
+		if(wav.chunk.length > c * 300) //max reord one time
 		{
 			printf("test\r\n");
 			break;
@@ -253,13 +248,13 @@ void stop_Record(void)
 	recordthreadID = 0;
 }
 
-int main(int argc, char *argv[])
-{
-
-	start_Record();
-
-	stop_Record_Thread();
-
-
-	printf("quit\r\n");
-}
+//int main(int argc, char *argv[])
+//{
+//
+//	start_Record();
+//
+//	stop_Record_Thread();
+//
+//
+//	printf("quit\r\n");
+//}
