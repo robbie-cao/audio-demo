@@ -1,3 +1,5 @@
+#include "mqtt_hander.h"
+
 #include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -7,13 +9,18 @@
 #include <signal.h>
 #include <pthread.h>
 #include <mosquitto.h>
-#include <json-c/json.h>
+
+#include "http_hander.h"
+
 
 #define mqtt_host "test.muabaobao.com"
 #define mqtt_port 1883
 
 static bool run = true;
 pthread_t mqttthreadID;
+
+char clientid[24];
+struct mosquitto *mosq;
 
 void handle_signal(int s)
 {
@@ -22,22 +29,35 @@ void handle_signal(int s)
 
 void connect_callback(struct mosquitto *mosq, void *obj, int result)
 {
-	printf("connect callback, rc=%d\n", result);
+	printf("\r\nconnect callback, rc=%d\n", result);
 }
 
 void message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *message)
 {
 	bool match = 0;
-	printf("got message '%.*s' for topic '%s'\n", message->payloadlen, (char*) message->payload, message->topic);
+	printf("\r\ngot message '%.*s' for topic '%s'\n", message->payloadlen, (char*) message->payload, message->topic);
 
-	mosquitto_topic_matches_sub("/test", message->topic, &match);
+	mosquitto_topic_matches_sub("/test1", message->topic, &match);
 	if (match) {
-		printf("got message for ADC topic\n");
+		//printf("got message for ADC topic\n");
+		json_object *new_obj;
+		new_obj = json_tokener_parse((char*) message->payload);
+
+		voice_Download_Service(new_obj);
 	}
 }
 
 int MQTT_Message_Send(json_object *msg)
 {
+    const char *json;
+
+    printf("mqtt pub:%s \r\n",json_object_to_json_string(msg));
+
+    json = json_object_to_json_string(msg);
+
+	mosquitto_publish(mosq,NULL,"/test1",strlen(json),json,1,false);
+
+	json_object_put(msg);
 
 	return 0;
 }
@@ -51,8 +71,6 @@ static void stop_Mqtt_SigHandler(int dwSigNo)
 
 void *mqtt_Thread_Func(void *arg)
 {
-	char clientid[24];
-	struct mosquitto *mosq;
 	int rc = 0;
 
 	signal(SIGINT, handle_signal);
@@ -70,7 +88,7 @@ void *mqtt_Thread_Func(void *arg)
 
 		rc = mosquitto_connect(mosq, mqtt_host, mqtt_port, 60);
 
-		mosquitto_subscribe(mosq, NULL, "/test", 0);
+		mosquitto_subscribe(mosq, NULL, "/test1", 0);
 
 		while(run){
 			rc = mosquitto_loop(mosq, -1, 1);

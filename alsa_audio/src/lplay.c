@@ -53,46 +53,6 @@ ssize_t SNDWAV_P_SaveRead(FILE * fd, void *buf, size_t count)
     return result;
 }
 
-void SNDWAV_Play(SNDPCMContainer_t *sndpcm, WAVContainer_t *wav, FILE *fd)
-{
-    int load, ret;
-    off64_t written = 0;
-    off64_t c;
-    off64_t count = LE_INT(wav->chunk.length);
-
-    load = 0;
-    while (written < count) {
-        /* Must read [chunk_bytes] bytes data enough. */
-        do {
-            c = count - written;
-            if (c > sndpcm->chunk_bytes)
-                c = sndpcm->chunk_bytes;
-            c -= load;
-
-            if (c == 0)
-                break;
-            ret = SNDWAV_P_SaveRead(fd, sndpcm->data_buf + load, c);
-            if (ret < 0) {
-                fprintf(stderr, "Error safe_read/n");
-                exit(-1);
-            }
-            if (ret == 0)
-                break;
-            load += ret;
-        } while ((size_t)load < sndpcm->chunk_bytes);
-
-        /* Transfer to size frame */
-        load = load * 8 / sndpcm->bits_per_frame;
-        ret = SNDWAV_WritePcm(sndpcm, load);
-        if (ret != load)
-            break;
-
-        ret = ret * sndpcm->bits_per_frame / 8;
-        written += ret;
-        load = 0;
-    }
-}
-
 int init_Play_ENV(void)
 {
 	memset(&playback, 0x0, sizeof(playback));

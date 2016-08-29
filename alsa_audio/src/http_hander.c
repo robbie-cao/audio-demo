@@ -6,6 +6,7 @@
 #include <json-c/json.h>
 
 #include "mqtt_hander.h"
+#include "lplay.h"
 
 struct MemoryStruct {
   char *memory;
@@ -27,7 +28,7 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
     return 0;
   }
 
-  printf("GET RESPONSE:%s\r\n",(char *)contents);
+  printf("\r\nGET RESPONSE:%s\r\n",(char *)contents);
 
   memcpy(&(mem->memory[mem->size]), contents, realsize);
   mem->size += realsize;
@@ -36,7 +37,8 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
   new_obj = json_tokener_parse(mem->memory);
 
   json_object_object_del(mem->msg,"filename");
-  json_object_object_add(mem->msg,"key",json_object_object_get(new_obj,"key"));
+
+  json_object_object_add(mem->msg,"key",json_object_new_string(json_object_get_string(json_object_object_get(new_obj,"key"))));
 
   printf("KEY:%s\r\n",json_object_get_string(json_object_object_get(new_obj,"key")));
 
@@ -75,6 +77,7 @@ int voice_Upload_Service(json_object *msg)
   }
 
   curl = curl_easy_init();
+
   if(curl) {
     /* upload to this place */
     curl_easy_setopt(curl, CURLOPT_URL,"http://test.muabaobao.com/record/upload");
@@ -116,5 +119,105 @@ int voice_Upload_Service(json_object *msg)
     /* always cleanup */
     curl_easy_cleanup(curl);
   }
+  return 0;
+}
+
+size_t getcontentlengthfunc(void *ptr, size_t size, size_t nmemb, void *stream) {
+       int r;
+       long len = 0;
+
+       /* _snscanf() is Win32 specific */
+       // r = _snscanf(ptr, size * nmemb, "Content-Length: %ld\n", &len);
+ r = sscanf(ptr, "Content-Length: %ld\n", &len);
+       if (r) /* Microsoft: we don't read the specs */
+              *((long *) stream) = len;
+
+       return size * nmemb;
+}
+
+/* 保存下载文件 */
+size_t wirtefunc(void *ptr, size_t size, size_t nmemb, void *stream)
+{
+        return fwrite(ptr, size, nmemb, stream);
+}
+
+int voice_Download_Service(json_object *msg)
+{
+  //
+//  CURL *curl;
+//  CURLcode res = CURLE_GOT_NOTHING;
+//  struct stat file_info;
+//  double speed_upload, total_time;
+//  FILE *fd;
+//  long filesize =0;
+  char remotepath[256];
+  bzero(remotepath,256);
+//  curl_off_t local_file_len = -1;
+//
+//  int use_resume = 0;
+//
+//  struct MemoryStruct chunk;
+//
+//  chunk.memory = malloc(1);  /* will be grown as needed by the realloc above */
+//  chunk.size = 0;    /* no data at this point */
+//  chunk.msg = msg;
+//
+//  if(stat("/tmp/msg.wav", &file_info) == 0)
+//    {
+//       local_file_len =  file_info.st_size;
+//       use_resume  = 1;
+//    }
+//
+//  //fd = fopen(json_object_get_string(json_object_object_get(msg,"filename")), "ab+"); /* open file to upload */
+//  fd = fopen("/tmp/msg.wav", "ab"); /* open file to upload */
+//
+//  if(!fd) {
+//
+//	return 1; /* can't continue */
+//  }
+//
+//  /* to get the file size */
+//  if(fstat(fileno(fd), &file_info) != 0) {
+//
+//	return 1; /* can't continue */
+//  }
+//
+//
+ sprintf(remotepath,"wget http://ocejshhhr.bkt.clouddn.com/%s exit-t 0 -O /tmp/msg.wav",json_object_get_string(json_object_object_get(msg,"key")));
+//  json_object_put(msg);
+//
+//  curl = curl_easy_init();
+//
+//  if(curl) {
+//	  curl_easy_setopt(curl, CURLOPT_URL, remotepath);
+//
+//	  curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 1);  // 设置连接超时，单位秒
+//	//设置http 头部处理函数
+//	 curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, getcontentlengthfunc);
+//	 curl_easy_setopt(curl, CURLOPT_HEADERDATA, &filesize);
+//   // 设置文件续传的位置给libcurl
+//	 //curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, use_resume?local_file_len:0);
+//
+//	 curl_easy_setopt(curl, CURLOPT_WRITEDATA, fd);
+//	 curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, wirtefunc);
+//
+//	//curl_easy_setopt(curlhandle, CURLOPT_READFUNCTION, readfunc);
+//	//curl_easy_setopt(curlhandle, CURLOPT_READDATA, f);
+//	 curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
+//	 curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+//
+//	 res = curl_easy_perform(curl);
+//
+//	 fflush(fd);
+//	 fclose(fd);
+//
+//	 if (res == CURLE_OK)
+//	 {
+		 //play
+	     system(remotepath);
+		 start_Play_Thread();
+//	 }
+// }
+
   return 0;
 }

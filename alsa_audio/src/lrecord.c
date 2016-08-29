@@ -211,7 +211,7 @@ void *record_Thread_Func(void *arg)
     upload_Voice(filename);
 
     printf("exit\r\n");
-    return 0;
+    return ((void *)0);
 
 Err:
     close(fd);

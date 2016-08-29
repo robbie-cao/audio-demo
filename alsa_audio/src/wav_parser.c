@@ -65,7 +65,7 @@ void WAV_P_PrintHeader(WAVContainer_t *container)
     printf("Fmt Blocks_align:   [%d]\r\n", container->format.blocks_align);
     printf("Fmt Sample_length:  [%d]\r\n", container->format.sample_length);
 
-    printf("/n");
+    printf("\r\n");
 
     printf("Chunk Type:         [%c%c%c%c]\r\n",
         (char)(container->chunk.type),
@@ -74,8 +74,8 @@ void WAV_P_PrintHeader(WAVContainer_t *container)
         (char)(container->chunk.type>>24));
     printf("Chunk Length:       [%d]\n", container->chunk.length);
 
-    printf("\r\nn");
-    printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++/n");
+    printf("\r\n");
+    printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 }
 
 int WAV_P_CheckValid(WAVContainer_t *container)
@@ -101,7 +101,7 @@ int WAV_ReadHeader(FILE * fd, WAVContainer_t *container)
 	fseek(fd, 0, SEEK_SET);
     if (fread(container, 1,sizeof(WAVContainer_t),fd) != sizeof(WAVContainer_t)) {
 
-        fprintf(stderr, "Error WAV_ReadHeader/n");
+        printf(stderr, "Error WAV_ReadHeader\r\n");
         return -1;
     }
 
@@ -127,7 +127,7 @@ int WAV_WriteHeader(int fd, WAVContainer_t *container)
         write(fd, &container->format, sizeof(container->format)) != sizeof(container->format) ||
         write(fd, &container->chunk, sizeof(container->chunk)) != sizeof(container->chunk)) {
 
-        fprintf(stderr, "Error WAV_WriteHeader/n");
+        printf(stderr, "Error WAV_WriteHeader\n");
         return -1;
     }
 
